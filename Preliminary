@@ -1,0 +1,185 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+
+interface IeBTC is IERC20 {
+    function mint(address account, uint256 amount) external returns (bool);
+}
+
+contract BitBank is Ownable {
+    using SafeERC20 for IERC20;
+    using SafeMath for uint256;
+
+    // The eBTC token contract
+    IeBTC public immutable _ebtc;
+
+    // The Bits token contract
+    IERC20 public immutable _bits;
+
+    // The eBTC price in Bits
+    uint256 public ebtcPrice;
+
+    // The total eBTC supply in the BitBank contract
+    uint256 public ebtcSupply;
+
+    // The eBTC balance of each user in the BitBank contract
+    mapping(address => uint256) public ebtcBalance;
+
+    // The eBTC allowance of each user in the BitBank contract
+    mapping(address => uint256) public ebtcAllowance;
+
+    // The total eBTC minted by the BitBank contract
+    uint256 public ebtcMinted;
+
+    // The eBTC mint fee in Bits
+    uint256 public ebtcMintFee;
+
+    // The eBTC mint fee receiver address
+    address public ebtcMintFeeReceiver;
+
+    // The eBTC mint fee rate
+    uint256 public ebtcMintFeeRate;
+
+    // The eBTC mint fee rate numerator
+    uint256 public ebtcMintFeeRateNumerator;
+
+    // The eBTC mint fee rate denominator
+    uint256 public ebtcMintFeeRateDenominator;
+
+    // The eBTC mint fee rate max
+    uint256 public ebtcMintFeeRateMax;
+
+    // The eBTC mint fee rate min
+    uint256 public ebtcMintFeeRateMin;
+
+    // The eBTC mint fee rate step
+    uint256 public ebtcMintFeeRateStep;
+
+    // The eBTC mint fee rate adjustment interval in seconds
+    uint256 public ebtcMintFeeRateAdjustmentInterval;
+
+    // The eBTC mint fee rate last adjustment time
+    uint256 public ebtcMintFeeRateLastAdjustmentTime;
+
+    // The eBTC mint fee rate target ratio
+    uint256 public ebtcMintFeeRateTargetRatio;
+
+    // The eBTC mint fee rate target ratio numerator
+    uint256 public ebtcMintFeeRateTargetRatioNumerator;
+
+    // The eBTC mint fee rate target ratio denominator
+    uint256 public ebtcMintFeeRateTargetRatioDenominator;
+
+    // The eBTC mint fee rate tolerance
+    uint256 public ebtcMintFeeRateTolerance;
+
+    // The eBTC mint fee rate tolerance numerator
+    uint256 public ebtcMintFeeRateToleranceNumerator;
+
+    // The eBTC mint fee rate tolerance denominator
+    uint256 public ebtcMintFeeRateToleranceDenominator;
+
+    // The eBTC mint fee rate positive feedback
+    int256 public ebtcMintFeeRatePositiveFeedback;
+
+    // The eBTC mint fee rate negative feedback
+    int256 public ebtcMintFeeRateNegativeFeedback;
+
+    // The eBTC mint fee rate no feedback
+    int256 public ebtcMintFeeRateNoFeedback;
+
+    // The eBTC mint fee rate feedback
+    int256 public ebtcMintFeeRateFeedback;
+
+    // The eBTC mint fee rate feedback threshold
+    uint256 public ebtcMintFeeRateFeedbackThreshold;
+
+    // The eBTC mint fee rate feedback threshold numerator
+    uint256 public ebtcMintFeeRateFeedbackThresholdNumerator;
+
+    // The eBTC mint fee rate feedback threshold denominator
+    uint256 public ebtcMintFeeRateFeedbackThresholdDenominator;
+
+    // The eBTC mint fee rate max feedback
+    int256 public ebtcMintFeeRateMaxFeedback;
+
+    // The eBTC mint fee rate min feedback
+    int256 public ebtcMintFeeRateMinFeedback;
+
+    // The event emitted when eBTC is minted
+    event eBTCMinted(address indexed account, uint256 amount, uint256 fee);
+
+    // The modifier to check if the caller is the eBTC contract
+    modifier onlyeBTC() {
+        require(msg.sender == address(_ebtc), "BitBank: caller is not the eBTC contract");
+        _;
+    }
+
+    // The constructor
+    constructor(
+        address ebtc_,
+        address bits_,
+        uint256 ebtcPrice_,
+        address ebtcMintFeeReceiver_,
+        uint256 ebtcMintFeeRateNumerator_,
+        uint256 ebtcMintFeeRateDenominator_,
+        uint256 ebtcMintFeeRateMax_,
+        uint256 ebtcMintFeeRateMin_,
+        uint256 ebtcMintFeeRateStep_,
+        uint256 ebtcMintFeeRateAdjustmentInterval_,
+        uint256 ebtcMintFeeRateTargetRatioNumerator_,
+        uint256 ebtcMintFeeRateTargetRatioDenominator_,
+        uint256 ebtcMintFeeRateToleranceNumerator_,
+        uint256 ebtcMintFeeRateToleranceDenominator_,
+        int256 ebtcMintFeeRatePositiveFeedback_,
+        int256 ebtcMintFeeRateNegativeFeedback_,
+        int256 ebtcMintFeeRateNoFeedback_,
+        uint256 ebtcMintFeeRateFeedbackThresholdNumerator_,
+        uint256 ebtcMintFeeRateFeedbackThresholdDenominator_,
+        int256 ebtcMintFeeRateMaxFeedback_,
+        int256 ebtcMintFeeRateMinFeedback_
+    ) {
+        _ebtc = IeBTC(ebtc_);
+        _bits = IERC20(bits_);
+        ebtcPrice = ebtcPrice_;
+        ebtcMintFeeReceiver = ebtcMintFeeReceiver_;
+        ebtcMintFeeRateNumerator = ebtcMintFeeRateNumerator_;
+        ebtcMintFeeRateDenominator = ebtcMintFeeRateDenominator_;
+        ebtcMintFeeRateMax = ebtcMintFeeRateMax_;
+        ebtcMintFeeRateMin = ebtcMintFeeRateMin_;
+        ebtcMintFeeRateStep = ebtcMintFeeRateStep_;
+        ebtcMintFeeRateAdjustmentInterval = ebtcMintFeeRateAdjustmentInterval_;
+        ebtcMintFeeRateTargetRatioNumerator = ebtcMintFeeRateTargetRatioNumerator_;
+        ebtcMintFeeRateTargetRatioDenominator = ebtcMintFeeRateTargetRatioDenominator_;
+        ebtcMintFeeRateToleranceNumerator = ebtcMintFeeRateToleranceNumerator_;
+        ebtcMintFeeRateToleranceDenominator = ebtcMintFeeRateToleranceDenominator_;
+        ebtcMintFeeRatePositiveFeedback = ebtcMintFeeRatePositiveFeedback_;
+        ebtcMintFeeRateNegativeFeedback = ebtcMintFeeRateNegativeFeedback_;
+        ebtcMintFeeRateNoFeedback = ebtcMintFeeRateNoFeedback_;
+        ebtcMintFeeRateFeedbackThresholdNumerator = ebtcMintFeeRateFeedbackThresholdNumerator_;
+        ebtcMintFeeRateFeedbackThresholdDenominator = ebtcMintFeeRateFeedbackThresholdDenominator_;
+        ebtcMintFeeRateMaxFeedback = ebtcMintFeeRateMaxFeedback_;
+        ebtcMintFeeRateMinFeedback = ebtcMintFeeRateMinFeedback_;
+        ebtcMintFeeRate = ebtcMintFeeRateNumerator.div(ebtcMintFeeRateDenominator);
+        ebtcMintFeeRateLastAdjustmentTime = block.timestamp;
+        ebtcMintFeeRateTargetRatio = ebtcMintFeeRateTargetRatioNumerator.div(ebtcMintFeeRateTargetRatioDenominator);
+        ebtcMintFeeRateTolerance = ebtcMintFeeRateToleranceNumerator.div(ebtcMintFeeRateToleranceDenominator);
+        ebtcMintFeeRateFeedbackThreshold = ebtcMintFeeRateFeedbackThresholdNumerator.div(ebtcMintFeeRateFeedbackThresholdDenominator);
+    }
+
+    // The function to mint eBTC using Bits
+    function minteBTC(uint256 bitsAmount) external {
+        require(bitsAmount > 0, "BitBank: bitsAmount is zero");
+        uint256 ebtcAmount = bitsAmount.mul(ebtcPrice).div(1e18);
+        require(ebtcAmount > 0, "BitBank: ebtcAmount is zero");
+        ebtcMintFee = ebtcAmount.mul(ebtcMintFeeRate).div(1e18);
+        require(ebtcMintFee < ebtcAmount, "BitBank: ebtcMintFee is too high");
+        ebtcAmount = ebtcAmount.sub(ebtcMintFee);
+        _bits.safeTransferFrom(msg.sender, address(this), bitsAmount);
+        _bits.safeTransfer(ebtcMintFeeReceiver, ebtcMintFee);
+        _eb
