@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+contract BitBank {
+    address public eBTCToken;
+    mapping(address => uint256) public dividends;
+    mapping(address => uint256) public bitsBalance;
+    uint256 public totalBits;
+
+    constructor(address _eBTCToken) {
+        eBTCToken = _eBTCToken;
+    }
+
+    function enter(uint256 amount) public {
+        IERC20(eBTCToken).transferFrom(msg.sender, address(this), amount);
+        bitsBalance[msg.sender] += amount;
+        totalBits += amount;
+        distributeDividends(amount);
+    }
+
+    function exit(uint256 amount) public {
+        bitsBalance[msg.sender] -= amount;
+        totalBits -= amount;
+        IERC20(eBTCToken).transfer(msg.sender, amount);
+        distributeDividends(amount);
+    }
+
+    function distributeDividends(uint256 amount) private {
+        uint256 fee = amount / 20; // 5% fee
+        dividends[msg.sender] += fee * bitsBalance[msg.sender] / totalBits;
+    }
+
+    function withdrawDividends() public {
+        uint256 dividend = dividends[msg.sender];
+        dividends[msg.sender] = 0;
+        IERC20(eBTCToken).transfer(msg.sender, dividend);
+    }
+
+    function reinvestDividends() public {
+        uint256 dividend = dividends[msg.sender];
+        dividends[msg.sender] = 0;
+        bitsBalance[msg.sender] += dividend;
+        totalBits += dividend;
+        distributeDividends(dividend);
+    }
+}
+
